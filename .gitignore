@@ -133,3 +133,4 @@ dmypy.json
 
 # FTN readme instr
 */README.md
+*/result.csv
