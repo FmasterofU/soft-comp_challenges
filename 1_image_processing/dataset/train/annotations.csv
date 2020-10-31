@@ -1,0 +1,10 @@
+Image;Red_cells;White_cells;Leukemia?
+img-1.jpg;35;6;TRUE
+img-2.jpg;23;1;FALSE
+img-3.jpg;16;1;FALSE
+img-4.jpg;68;5;TRUE
+img-5.jpg;47;20;TRUE
+img-6.jpg;61;7;TRUE
+img-7.jpg;22;1;FALSE
+img-8.jpg;24;1;FALSE
+img-9.jpg;23;2;FALSE
