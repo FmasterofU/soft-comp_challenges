@@ -27,35 +27,41 @@ def count_blood_cells(image_path):
     greenimg = greenimg.astype('uint8')
     adabingreenimg = cv2.adaptiveThreshold(greenimg, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 535, 62)
     invadabingreenimg = 255 - adabingreenimg
+    img, contours, hierarchy = cv2.findContours(invadabingreenimg, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+    for contour in contours:
+        cv2.fillPoly(invadabingreenimg, pts=[contour], color=255)
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
     oinvadabingreenimg = cv2.morphologyEx(invadabingreenimg, cv2.MORPH_OPEN, kernel, iterations=2)
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
     coinvadabingreenimg = cv2.morphologyEx(oinvadabingreenimg, cv2.MORPH_CLOSE, kernel, iterations=2)
     dtcoinvadabingreenimg = cv2.distanceTransform(coinvadabingreenimg, cv2.DIST_L2, 5)
-    _, temp = cv2.threshold(dtcoinvadabingreenimg, 0.7 * dtcoinvadabingreenimg.max(), 255, 0)
+    _, temp = cv2.threshold(dtcoinvadabingreenimg, 0.4 * dtcoinvadabingreenimg.max(), 255, 0)
     defwhitecells = np.uint8(temp)
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
     whitecells = cv2.dilate(defwhitecells, kernel, iterations=1)
     _, whitecellscontours, _ = cv2.findContours(whitecells, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
     white_blood_cell_count = len(whitecellscontours)
-    adabingsimg = cv2.adaptiveThreshold(gsimg, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 535, 0)
-    invadabingsimg = 255 - adabingsimg
+    adabingreenimg = cv2.adaptiveThreshold(greenimg, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 535, 0)
+    invadabingreenimg = 255 - adabingreenimg
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
     surewhitecells = cv2.dilate(coinvadabingreenimg, kernel, iterations=3)
-    redinvadabingsimg = cv2.subtract(invadabingsimg, surewhitecells)
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
-    oredinvadabingsimg = cv2.morphologyEx(redinvadabingsimg, cv2.MORPH_OPEN, kernel, iterations=1)
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
-    dilatedoredinvadabingsimg = cv2.dilate(oredinvadabingsimg, kernel, iterations=1)
-    dtdilatedoredinvadabingsimg = cv2.distanceTransform(dilatedoredinvadabingsimg, cv2.DIST_L2, 5)
-    _, temp = cv2.threshold(dtdilatedoredinvadabingsimg, 0.4 * dtdilatedoredinvadabingsimg.max(), 255, 0)
+    redinvadabingreenimg = cv2.subtract(invadabingreenimg, surewhitecells)
+    img, contours, hierarchy = cv2.findContours(redinvadabingreenimg, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+    for contour in contours:
+        cv2.fillPoly(redinvadabingreenimg, pts=[contour], color=255)
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+    erodedredinvadabingreenimg = cv2.erode(redinvadabingreenimg, kernel, iterations=4)
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+    dilatederodedredinvadabingreenimg = cv2.dilate(erodedredinvadabingreenimg, kernel, iterations=2)
+    dtdilatederodedredinvadabingreenimg = cv2.distanceTransform(dilatederodedredinvadabingreenimg, cv2.DIST_L2, 5)
+    _, temp = cv2.threshold(dtdilatederodedredinvadabingreenimg, 0.35 * dtdilatederodedredinvadabingreenimg.max(), 255, 0)
     defredcells = np.uint8(temp)
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (4, 4))
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
     redcells = cv2.dilate(defredcells, kernel, iterations=1)
     _, redcellscontours, _ = cv2.findContours(redcells, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
     red_blood_cell_count = len(redcellscontours)
     has_leukemia = True if red_blood_cell_count/(red_blood_cell_count+white_blood_cell_count)<0.925 else False
     # TODO - Odrediti da li na osnovu broja krvnih zrnaca pacijent ima leukemiju i vratiti True/False kao povratnu vrednost ove procedure
-    if white_blood_cell_count<=2 and red_blood_cell_count/white_blood_cell_count>12:
-        has_leukemia = False
+    #if white_blood_cell_count<=2 and red_blood_cell_count/white_blood_cell_count>12:
+    #    has_leukemia = False
     return red_blood_cell_count, white_blood_cell_count, has_leukemia
