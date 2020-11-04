@@ -74,3 +74,6 @@ for labeled_image_name in labeled_samples:
 percentage_diagnosis /= len(labeled_samples)
 
 print(percentage_red_cells*0.5+percentage_white_cells*0.3+percentage_diagnosis*0.2)
+print(percentage_red_cells)
+print(percentage_white_cells)
+print(percentage_diagnosis)

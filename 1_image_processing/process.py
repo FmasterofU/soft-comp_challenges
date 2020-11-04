@@ -35,7 +35,7 @@ def count_blood_cells(image_path):
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
     coinvadabingreenimg = cv2.morphologyEx(oinvadabingreenimg, cv2.MORPH_CLOSE, kernel, iterations=2)
     dtcoinvadabingreenimg = cv2.distanceTransform(coinvadabingreenimg, cv2.DIST_L2, 5)
-    _, temp = cv2.threshold(dtcoinvadabingreenimg, 0.4 * dtcoinvadabingreenimg.max(), 255, 0)
+    _, temp = cv2.threshold(dtcoinvadabingreenimg, 0.7 * dtcoinvadabingreenimg.max(), 255, 0)
     defwhitecells = np.uint8(temp)
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
     whitecells = cv2.dilate(defwhitecells, kernel, iterations=1)
