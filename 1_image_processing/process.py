@@ -25,7 +25,7 @@ def count_blood_cells(image_path):
     greenimg = cvimg[:, :, 1].astype('float64')
     greenimg *= (255.0 / greenimg.max())
     greenimg = greenimg.astype('uint8')
-    adabingreenimg = cv2.adaptiveThreshold(greenimg, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 535, 64)
+    adabingreenimg = cv2.adaptiveThreshold(greenimg, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 535, 62)
     invadabingreenimg = 255 - adabingreenimg
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
     erodedinvadabingreenimg = cv2.erode(invadabingreenimg, kernel, iterations=1)
