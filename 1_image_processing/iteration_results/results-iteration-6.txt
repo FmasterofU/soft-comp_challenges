@@ -1,7 +1,7 @@
 
 Pozdrav,<br/><br/>
 
-Vaš zadatak u nedeljnom izazovu "Obrada slike (Detekcija leukemije sa mikroskopskih snimaka razmaza krvi)" je ocenjen i trenutni rezultat je: <b> 31.93 % </b> <br/><br/>
+Vaš zadatak u nedeljnom izazovu "Obrada slike (Detekcija leukemije sa mikroskopskih snimaka razmaza krvi)" je ocenjen i trenutni rezultat je: <b> 44.89 % </b> <br/><br/>
 
 Vaš dosadašnji najbolji rezultat u ovom izazovu je: <b> 50.20 % </b> <br/><br/>
 
