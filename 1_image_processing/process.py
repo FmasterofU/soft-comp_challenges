@@ -30,20 +30,41 @@ def count_blood_cells(image_path):
     for contour in contours:
         cv2.fillPoly(invadabingreenimg, pts=[contour], color=255)
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
-    oinvadabingreenimg = cv2.morphologyEx(invadabingreenimg, cv2.MORPH_OPEN, kernel, iterations=5)
+    oinvadabingreenimg = cv2.morphologyEx(invadabingreenimg, cv2.MORPH_OPEN, kernel, iterations=3)
     _, whitecellscontours, _ = cv2.findContours(oinvadabingreenimg, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
     white_blood_cell_count = len(whitecellscontours)
     adabingreenimg = cv2.adaptiveThreshold(greenimg, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 535, 0)
     invadabingreenimg = 255 - adabingreenimg
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
-    einvadabingreenimg = cv2.morphologyEx(invadabingreenimg, cv2.MORPH_ERODE, kernel, iterations=1)
+    #kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+    #einvadabingreenimg = cv2.morphologyEx(invadabingreenimg, cv2.MORPH_ERODE, kernel, iterations=1)
+    einvadabingreenimg = invadabingreenimg
     img, contours, hierarchy = cv2.findContours(einvadabingreenimg, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
     for contour in contours:
         cv2.fillPoly(einvadabingreenimg, pts=[contour], color=255)
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
-    oeinvadabingreenimg = cv2.morphologyEx(einvadabingreenimg, cv2.MORPH_OPEN, kernel, iterations=1)
+    oeinvadabingreenimg = cv2.morphologyEx(einvadabingreenimg, cv2.MORPH_OPEN, kernel, iterations=3)
     _, cellscontours, _ = cv2.findContours(oeinvadabingreenimg, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-    red_blood_cell_count = len(cellscontours) - white_blood_cell_count
+    contourmin = greenimg.shape[0] * greenimg.shape[1]
+    contourmax = 0
+    for c in cellscontours:
+        cimg = np.zeros(shape=greenimg.shape, dtype=np.uint8)
+        cv2.fillPoly(cimg, pts=[c], color=255)
+        cflat = c.flatten()
+        temp = cv2.countNonZero(cimg)
+        if 0 not in cflat or cimg.shape[0] - 1 not in cflat or cimg.shape[1] - 1 not in cflat:
+            if contourmin > temp:
+                contourmin = temp
+        if contourmax < temp:
+            contourmax = temp
+    meancontourarea = (contourmax + contourmin) / 2
+    cellsnum = 0
+    for c in cellscontours:
+        cflat = c.flatten()
+        if 0 not in cflat or greenimg.shape[0] - 1 not in cflat or greenimg.shape[1] - 1 not in cflat:
+            if cv2.contourArea(c) <= 0.05 * meancontourarea:
+                continue
+        cellsnum = cellsnum + 1
+    red_blood_cell_count = cellsnum - white_blood_cell_count
     has_leukemia = True if red_blood_cell_count/(red_blood_cell_count+white_blood_cell_count)<0.925 else False
     # TODO - Odrediti da li na osnovu broja krvnih zrnaca pacijent ima leukemiju i vratiti True/False kao povratnu vrednost ove procedure
     #if white_blood_cell_count<=2 and red_blood_cell_count/white_blood_cell_count>12:
