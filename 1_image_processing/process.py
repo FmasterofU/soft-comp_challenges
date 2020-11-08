@@ -35,9 +35,9 @@ def count_blood_cells(image_path):
     white_blood_cell_count = len(whitecellscontours)
     adabingreenimg = cv2.adaptiveThreshold(greenimg, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 535, 0)
     invadabingreenimg = 255 - adabingreenimg
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
-    einvadabingreenimg = cv2.morphologyEx(invadabingreenimg, cv2.MORPH_ERODE, kernel, iterations=1)
-    #einvadabingreenimg = invadabingreenimg
+    #kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+    #einvadabingreenimg = cv2.morphologyEx(invadabingreenimg, cv2.MORPH_ERODE, kernel, iterations=1)
+    einvadabingreenimg = invadabingreenimg
     img, contours, hierarchy = cv2.findContours(einvadabingreenimg, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
     for contour in contours:
         cv2.fillPoly(einvadabingreenimg, pts=[contour], color=255)
