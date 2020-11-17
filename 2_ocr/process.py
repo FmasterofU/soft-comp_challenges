@@ -1,4 +1,13 @@
-# import libraries here
+import cv2
+import collections
+from keras.models import Sequential
+from keras.layers.core import Dense,Activation
+from keras.optimizers import SGD
+from keras.models import model_from_json
+from sklearn import datasets
+from sklearn.cluster import KMeans
+import numpy as np
+import os
 
 
 def train_or_load_character_recognition_model(train_image_paths, serialization_folder):
@@ -15,10 +24,41 @@ def train_or_load_character_recognition_model(train_image_paths, serialization_f
     :param serialization_folder: folder u koji treba sacuvati serijalizovani model
     :return: Objekat modela
     """
-    # TODO - Istrenirati model ako vec nije istreniran, ili ga samo ucitati iz foldera za serijalizaciju
 
-    model = None
-    return model
+    try:
+        with open(os.path.join(serialization_folder, 'NeuralNetParams.json'), 'r') as nnp_file:
+            nnmodel = model_from_json(nnp_file.read())
+        nnmodel.load_weights(os.path.join(serialization_folder, 'NeuralNetWeights.h5'))
+    except Exception as e:
+        nnmodel = train_ocr(train_image_paths)
+        params = nnmodel.to_json()
+        try:
+            with open(os.path.join(serialization_folder, 'NeuralNetParams.json'), 'w') as nnp_file:
+                nnp_file.write(params)
+            nnmodel.save_weights(os.path.join(serialization_folder, 'NeuralNetWeights.h5'))
+        except Exception as e:
+            print(e)
+            pass
+    return nnmodel
+
+
+alphabet = ['A', 'B', 'C', 'Č', 'Ć', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S',
+            'Š', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'Ž', 'a', 'b', 'c', 'č', 'ć', 'd', 'e', 'f', 'g', 'h', 'i', 'j',
+            'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 'š', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'ž']
+
+
+def train_ocr(train_image_paths):
+    nn = Sequential()
+    nn.add(Dense(256, input_dim=1024, activation='sigmoid'))
+    nn.add(Dense(len(alphabet)))
+    y = np.array(np.eye(len(alphabet)), np.float32)
+    for path in train_image_paths:
+        pass
+    x = None
+    sgd = SGD(lr=0.01, momentum=0.9)
+    nn.compile(loss='mean_squared_error', optimizer=sgd)
+    nn.fit(x, y, epochs=500, batch_size=1, verbose=0, shuffle=False)
+    return nn
 
 
 def extract_text_from_image(trained_model, image_path, vocabulary):
@@ -40,3 +80,5 @@ def extract_text_from_image(trained_model, image_path, vocabulary):
     # TODO - Izvuci tekst sa ulazne fotografije i vratiti ga kao string
 
     return extracted_text
+
+
