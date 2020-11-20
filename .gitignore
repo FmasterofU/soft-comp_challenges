@@ -135,3 +135,6 @@ dmypy.json
 **/README.md
 **/README.txt
 */result.csv
+
+# other
+2_ocr/serialized_model/N*
