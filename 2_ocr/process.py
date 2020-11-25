@@ -4,6 +4,7 @@ from keras.models import Sequential
 from keras.layers.core import Dense,Activation,Dropout
 from keras.optimizers import SGD
 from keras.models import model_from_json
+from keras.preprocessing.image import ImageDataGenerator
 from sklearn import datasets
 from sklearn.cluster import KMeans
 import numpy as np
@@ -50,6 +51,12 @@ alphabet = ['A', 'B', 'C', 'Č', 'Ć', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', '
 
 
 def train_ocr(train_image_paths):
+    datagen = ImageDataGenerator(
+        rotation_range=45,
+        width_shift_range=0.2,
+        height_shift_range=0.2,
+        shear_range=0.5
+    )
     if train_image_paths[0][-5] == '1':
         train_image_paths = train_image_paths[::-1]
     nn = Sequential()
@@ -64,17 +71,31 @@ def train_ocr(train_image_paths):
     x = []
     for path in train_image_paths:
         vectorimagerois, _ = extract_rois(path)
-        x.extend(vectorimagerois)
+        for im in vectorimagerois:
+            x.append(im.flatten())
+            #x.append(im.tolist())
     x = np.array(x)
+    print(x.shape,y.shape)
     sgd = SGD(lr=0.03, momentum=0.9)
     nn.compile(loss='mean_squared_error', optimizer=sgd)
     nn.fit(x, y, epochs=4000, batch_size=1, verbose=2, shuffle=False)
+    #print(x.shape)
+    #x = np.expand_dims(x, axis=3)
+    #print(x.shape)
+    #for x_batch, y_batch in datagen.flow(x, y, batch_size=30, shuffle=False):
+    #    x=[]
+    #    for a in x_batch:
+    #        x.append(a.flatten())
+    #    x = np.array(x, dtype=int)
+    #    nn.fit(x, y_batch, epochs=4000, steps_per_epoch=len(x_batch) / 30, verbose=2, shuffle=False)
+    #nn.fit_generator(inputdata, steps_per_epoch=len(x) / 30, epochs=4000)
     return nn
 
 
 def nn_predict_text(trained_model, vectorcharimgrois):
     extracted_text = ''
     for i in range(len(vectorcharimgrois)):
+        vectorcharimgrois[i] = vectorcharimgrois[i].flatten()
         if vectorcharimgrois[i].ndim == 1:
             vectorcharimgrois[i] = np.array([vectorcharimgrois[i]])
         index = np.argmax(trained_model.predict(vectorcharimgrois[i]))
@@ -83,10 +104,14 @@ def nn_predict_text(trained_model, vectorcharimgrois):
 
 
 def add_spaces_to_nn_text_output(extracted_text, distancerois):
-    distances = np.array(distancerois).reshape(len(distancerois), 1)
-    k_means = KMeans(n_clusters=2, max_iter=2000, tol=0.00001, n_init=10)
-    k_means.fit(distances)
-    w_space_group = max(enumerate(k_means.cluster_centers_), key=lambda x: x[1])[0]
+    try:
+        distances = np.array(distancerois).reshape(len(distancerois), 1)
+        k_means = KMeans(n_clusters=2, max_iter=2000, tol=0.00001, n_init=10)
+        k_means.fit(distances)
+        w_space_group = max(enumerate(k_means.cluster_centers_), key=lambda x: x[1])[0]
+    except Exception as e:
+        print(e)
+        return extracted_text
     charsnum = len(extracted_text)
     for i in range(charsnum):
         if i < len(distancerois) and k_means.labels_[i] == w_space_group:
@@ -220,37 +245,54 @@ def cropMultipleContoursBindingRect(baseimg, cnts):
 
 def rectDistance(r1, r2):
     ret = r2[0] - r1[0] - r2[2]
-    return ret if ret >= 0 else 0
+    return ret #if ret >= 0 else 0
 
 
 def extract_rois(image_path):
     cvimg = cv2.imread(image_path)
-    rgbimg = cv2.cvtColor(cvimg, cv2.COLOR_BGR2RGB)
     hsvImage = cv2.cvtColor(cvimg, cv2.COLOR_BGR2HSV)
     x, y = histogram(hsvImage[:, :, 0], 179)
-    pixels = hsvImage.shape[0] * hsvImage.shape[1]
+    textimg = None
+    ypick = y.copy()
+    # pixels = hsvImage.shape[0] * hsvImage.shape[1]
+    pixelsmax = np.max(ypick)
     for i in range(len(y)):
-        if not 0.05 * pixels < y[i] < 0.3 * pixels:
-            y[i] = 0
-    peaks, _ = scipy.signal.find_peaks(y)
-    peakcandidate = []
-    for peak in peaks:
-        valid = True
-        hsvpeak = [peak]
-        for i in range(1, 3):
-            xtemp, ytemp = distinctHist(hsvImage[:, :, i], 255, hsvImage[:, :, 0] == peak)
-            hsvpeak.append(np.argmax(ytemp))
-            if (i==1 and np.amax(ytemp)<0.3*y[peak]):# or (i==2 and np.amax(ytemp)<0.4*y[peak]):#if (i == 1 and np.amax(ytemp) < 0.6 * y[peak]) or (i == 2 and np.amax(ytemp) < 0.4 * y[peak]):
-                valid = False
-                break
-        if valid:
-            peakcandidate.append(hsvpeak)
-    peakcandidate.sort(key=lambda x: x[2], reverse=True)
-    textimg = np.zeros(hsvImage[:,:,0].shape, hsvImage[:,:,0].dtype)
-    print(len(peakcandidate), image_path, peakcandidate)
-    if len(peakcandidate) == 0:
-        return None, None
-    textimg[np.logical_and(hsvImage[:, :, 0] == peakcandidate[0][0], hsvImage[:, :, 1] == peakcandidate[0][1])] = 255
+        if (i != 0 and ypick[i - 1] > ypick[i]) or (i != 179 and ypick[i] < ypick[i + 1]):
+            ypick[i] = 0
+    for i in range(len(y)):
+        if 0.05 * pixelsmax > ypick[i]:
+            ypick[i] = 0
+    # pickpeaks, _ = scipy.signal.find_peaks(ypick)
+    pickpeaks = np.nonzero(ypick)[0]
+    print(pickpeaks)
+    if len(pickpeaks) == 2:
+        peak = min(pickpeaks.tolist(), key=lambda x: ypick[x])
+        textimg = np.zeros(hsvImage[:, :, 0].shape, hsvImage[:, :, 0].dtype)
+        textimg[hsvImage[:,:,0]==peak] = 255
+    else:
+        pixels = hsvImage.shape[0] * hsvImage.shape[1]
+        for i in range(len(y)):
+            if not 0.05 * pixels < y[i] < 0.3 * pixels:
+                y[i] = 0
+        peaks, _ = scipy.signal.find_peaks(y)
+        peakcandidate = []
+        for peak in peaks:
+            valid = True
+            hsvpeak = [peak]
+            for i in range(1, 3):
+                xtemp, ytemp = distinctHist(hsvImage[:, :, i], 255, hsvImage[:, :, 0] == peak)
+                hsvpeak.append(np.argmax(ytemp))
+                if (i==1 and np.amax(ytemp)<0.3*y[peak]):# or (i==2 and np.amax(ytemp)<0.4*y[peak]):#if (i == 1 and np.amax(ytemp) < 0.6 * y[peak]) or (i == 2 and np.amax(ytemp) < 0.4 * y[peak]):
+                    valid = False
+                    break
+            if valid:
+                peakcandidate.append(hsvpeak)
+        peakcandidate.sort(key=lambda x: x[2], reverse=True)
+        textimg = np.zeros(hsvImage[:,:,0].shape, hsvImage[:,:,0].dtype)
+        print(len(peakcandidate), image_path, peakcandidate)
+        if len(peakcandidate) == 0:
+            return None, None
+        textimg[np.logical_and(hsvImage[:, :, 0] == peakcandidate[0][0], hsvImage[:, :, 1] == peakcandidate[0][1])] = 255
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
     closedopentextimg = textimg
     # opentextimg = cv2.morphologyEx(textimg,cv2.MORPH_OPEN,kernel, iterations = 1)
@@ -291,7 +333,7 @@ def extract_rois(image_path):
     print(len(exrects))
     for i in range(0, len(rois)):
         if rois[i][1].shape[0]==0 or rois[i][1].shape[1]==0: continue
-        vectorimgrois.append(cv2.resize(rois[i][1]/255, (32, 32), interpolation=cv2.INTER_NEAREST).flatten())
+        vectorimgrois.append(cv2.resize(rois[i][1]/255, (32, 32), interpolation=cv2.INTER_NEAREST))
         if i + 1 < len(rois):
             distancerois.append(rectDistance(rois[i][0], rois[i + 1][0]))
     return vectorimgrois, distancerois
