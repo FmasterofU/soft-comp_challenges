@@ -1,7 +1,7 @@
 import cv2
 import collections
 from keras.models import Sequential
-from keras.layers.core import Dense,Activation,Dropout
+from keras.layers.core import Dense, Activation, Dropout
 from keras.optimizers import SGD
 from keras.models import model_from_json
 from keras.preprocessing.image import ImageDataGenerator
@@ -11,6 +11,9 @@ import numpy as np
 import scipy.signal
 import os
 from fuzzywuzzy import fuzz
+import matplotlib
+import matplotlib.pyplot as plt
+import math
 
 
 def train_or_load_character_recognition_model(train_image_paths, serialization_folder):
@@ -52,15 +55,18 @@ alphabet = ['A', 'B', 'C', 'Č', 'Ć', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', '
 
 def train_ocr(train_image_paths):
     datagen = ImageDataGenerator(
-        rotation_range=45,
+        rotation_range=25,
+        fill_mode="constant",
+        cval=0,
         width_shift_range=0.2,
         height_shift_range=0.2,
-        shear_range=0.5
+        shear_range=0.5,
+        zoom_range=0.15
     )
     if train_image_paths[0][-5] == '1':
         train_image_paths = train_image_paths[::-1]
     nn = Sequential()
-    nn.add(Dense(256, input_dim=1024, activation='sigmoid'))
+    nn.add(Dense(192, input_dim=28*28, activation='sigmoid'))
     nn.add(Dropout(0.3))
     #nn.add(Dense(256, activation='sigmoid'))
     #nn.add(Dropout(0.3))
@@ -72,22 +78,30 @@ def train_ocr(train_image_paths):
     for path in train_image_paths:
         vectorimagerois, _ = extract_rois(path)
         for im in vectorimagerois:
-            x.append(im.flatten())
-            #x.append(im.tolist())
+            #x.append(im.flatten())
+            x.append(im.tolist())
     x = np.array(x)
-    print(x.shape,y.shape)
-    sgd = SGD(lr=0.03, momentum=0.9)
+    print(x.shape, y.shape)
+    sgd = SGD(lr=0.4, momentum=0.9)
     nn.compile(loss='mean_squared_error', optimizer=sgd)
-    nn.fit(x, y, epochs=4000, batch_size=1, verbose=2, shuffle=False)
-    #print(x.shape)
-    #x = np.expand_dims(x, axis=3)
-    #print(x.shape)
-    #for x_batch, y_batch in datagen.flow(x, y, batch_size=30, shuffle=False):
-    #    x=[]
-    #    for a in x_batch:
-    #        x.append(a.flatten())
-    #    x = np.array(x, dtype=int)
-    #    nn.fit(x, y_batch, epochs=4000, steps_per_epoch=len(x_batch) / 30, verbose=2, shuffle=False)
+    #nn.fit(x, y, epochs=700, batch_size=1, verbose=2, shuffle=False)
+    #return nn
+    # print(x.shape)
+    x = np.expand_dims(x, axis=3)
+    print(x.shape)
+    round = 0
+    for x_batch, y_batch in datagen.flow(x, y, batch_size=y.shape[0], shuffle=False):
+        round += 1
+        x = []
+        for a in x_batch:
+            #plt.imshow(a)
+            #plt.show()
+            x.append(a.flatten())
+        x = np.array(x)
+        print(round)
+        nn.fit(x, y_batch, epochs=1, steps_per_epoch=x.shape[0], verbose=2, shuffle=False)
+        if round >= 6000:
+            break
     #nn.fit_generator(inputdata, steps_per_epoch=len(x) / 30, epochs=4000)
     return nn
 
@@ -106,17 +120,22 @@ def nn_predict_text(trained_model, vectorcharimgrois):
 def add_spaces_to_nn_text_output(extracted_text, distancerois):
     try:
         distances = np.array(distancerois).reshape(len(distancerois), 1)
-        k_means = KMeans(n_clusters=2, max_iter=2000, tol=0.00001, n_init=10)
+        k_means = KMeans(n_clusters=2, max_iter=2000, tol=0.000001, n_init=100)
         k_means.fit(distances)
         w_space_group = max(enumerate(k_means.cluster_centers_), key=lambda x: x[1])[0]
     except Exception as e:
         print(e)
         return extracted_text
     charsnum = len(extracted_text)
+    insertedwhitespaces = 0
+    ret = ''
     for i in range(charsnum):
+        ret += extracted_text[i]
         if i < len(distancerois) and k_means.labels_[i] == w_space_group:
-            extracted_text = extracted_text[:i+1] + ' ' + extracted_text[i+1:]
-    return extracted_text
+            ret += ' '
+            #extracted_text = extracted_text[:i + insertedwhitespaces + 1] + ' ' + extracted_text[i + insertedwhitespaces + 1:]
+            #insertedwhitespaces += 1
+    return ret #extracted_text
 
 
 def guess_text_by_distance(extracted_text, vocabulary):
@@ -170,8 +189,8 @@ def extract_text_from_image(trained_model, image_path, vocabulary):
 
 def histogram(image, xmax):
     height, width = image.shape[0:2]
-    x = range(0, xmax+1)
-    y = np.zeros(xmax+1)
+    x = range(0, xmax + 1)
+    y = np.zeros(xmax + 1)
     for i in range(0, height):
         for j in range(0, width):
             pixel = image[i, j]
@@ -181,8 +200,8 @@ def histogram(image, xmax):
 
 def distinctHist(image, xmax, sourcevalid):
     height, width = image.shape[0:2]
-    x = range(0, xmax+1)
-    y = np.zeros(xmax+1)
+    x = range(0, xmax + 1)
+    y = np.zeros(xmax + 1)
     for i in range(0, height):
         for j in range(0, width):
             if sourcevalid[i, j]:
@@ -192,7 +211,7 @@ def distinctHist(image, xmax, sourcevalid):
 
 
 def rectPoints(r):
-    pts = [[r[0],r[1]], [r[0],r[1]], [r[0],r[1]], [r[0],r[1]]]
+    pts = [[r[0], r[1]], [r[0], r[1]], [r[0], r[1]], [r[0], r[1]]]
     pts[1][0] = pts[1][0] + r[2]
     pts[2][0] = pts[1][0]
     pts[2][1] = pts[2][1] + r[3]
@@ -211,7 +230,7 @@ def isInside(rectangle, contour):
 
 
 def expandRect(rectangle):
-    wxsideshift = 0#int(0.15 * rectangle[2])
+    wxsideshift = 0  # int(0.15 * rectangle[2])
     hyupshift = int(0.5 * rectangle[3])
     hydownshift = int(0.15 * rectangle[3])
     rectw = int(2 * wxsideshift + rectangle[2])
@@ -221,13 +240,12 @@ def expandRect(rectangle):
     return (rectx, recty, rectw, recth)
 
 
-def cropMultipleContoursBindingRect(baseimg, cnts):
+def cropMultipleContoursBoundingRect(baseimg, cnts, allcontours):
     img = np.copy(baseimg)
     y1, x1 = img.shape
     x2 = 0
     y2 = 0
     for cnt in cnts:
-        #cv2.drawContours(img, [cnt], -1, 255)
         x, y, w, h = cv2.boundingRect(cnt)
         if x < x1:
             x1 = x
@@ -240,15 +258,34 @@ def cropMultipleContoursBindingRect(baseimg, cnts):
     w = x2 - x1
     h = y2 - y1
     rect = (x1, y1, w, h)
-    return [rect , baseimg[int(y1):int(y1+h+1), int(x1):int(x1+w+1)]]
+    # for c in allcontours:
+    #    exists = False
+    #    for cnt in cnts:
+    #        if np.array_equal(c, cnt):
+    #            exists = True
+    #            break
+    #    if not exists:
+    #        cv2.drawContours(img, [c], -1, 0)
+    return [rect, img[int(y1):int(y1 + h + 1), int(x1):int(x1 + w + 1)]]
 
 
 def rectDistance(r1, r2):
-    ret = r2[0] - r1[0] - r2[2]
-    return ret #if ret >= 0 else 0
+    xdist = r2[0] - (r1[0] + r2[2])
+    ylowerdist = r2[1] + r2[3] - (r1[1] + r1[3])
+    dist = math.sqrt(math.pow(xdist, 2) + math.pow(ylowerdist, 2)) * (1 if xdist == 0 else xdist / abs(xdist))
+    return xdist
+
+
+counter = 0
 
 
 def extract_rois(image_path):
+    #global counter
+    #if counter == 3:
+    #    input()
+    #    counter = 0
+    #else:
+    #    counter += 1
     cvimg = cv2.imread(image_path)
     hsvImage = cv2.cvtColor(cvimg, cv2.COLOR_BGR2HSV)
     x, y = histogram(hsvImage[:, :, 0], 179)
@@ -268,8 +305,9 @@ def extract_rois(image_path):
     if len(pickpeaks) == 2:
         peak = min(pickpeaks.tolist(), key=lambda x: ypick[x])
         textimg = np.zeros(hsvImage[:, :, 0].shape, hsvImage[:, :, 0].dtype)
-        textimg[hsvImage[:,:,0]==peak] = 255
+        textimg[hsvImage[:, :, 0] == peak] = 255
     else:
+        #return None, None
         pixels = hsvImage.shape[0] * hsvImage.shape[1]
         for i in range(len(y)):
             if not 0.05 * pixels < y[i] < 0.3 * pixels:
@@ -282,22 +320,25 @@ def extract_rois(image_path):
             for i in range(1, 3):
                 xtemp, ytemp = distinctHist(hsvImage[:, :, i], 255, hsvImage[:, :, 0] == peak)
                 hsvpeak.append(np.argmax(ytemp))
-                if (i==1 and np.amax(ytemp)<0.3*y[peak]):# or (i==2 and np.amax(ytemp)<0.4*y[peak]):#if (i == 1 and np.amax(ytemp) < 0.6 * y[peak]) or (i == 2 and np.amax(ytemp) < 0.4 * y[peak]):
+                if (i == 1 and np.amax(ytemp) < 0.3 * y[
+                    peak]):  # or (i==2 and np.amax(ytemp)<0.4*y[peak]):#if (i == 1 and np.amax(ytemp) < 0.6 * y[peak]) or (i == 2 and np.amax(ytemp) < 0.4 * y[peak]):
                     valid = False
                     break
             if valid:
                 peakcandidate.append(hsvpeak)
         peakcandidate.sort(key=lambda x: x[2], reverse=True)
-        textimg = np.zeros(hsvImage[:,:,0].shape, hsvImage[:,:,0].dtype)
+        textimg = np.zeros(hsvImage[:, :, 0].shape, hsvImage[:, :, 0].dtype)
         print(len(peakcandidate), image_path, peakcandidate)
         if len(peakcandidate) == 0:
             return None, None
-        textimg[np.logical_and(hsvImage[:, :, 0] == peakcandidate[0][0], hsvImage[:, :, 1] == peakcandidate[0][1])] = 255
+        textimg[
+            np.logical_and(hsvImage[:, :, 0] == peakcandidate[0][0], hsvImage[:, :, 1] == peakcandidate[0][1])] = 255
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
     closedopentextimg = textimg
     # opentextimg = cv2.morphologyEx(textimg,cv2.MORPH_OPEN,kernel, iterations = 1)
-    # closedopentextimg = cv2.morphologyEx(opentextimg,cv2.MORPH_CLOSE,kernel, iterations = 2)
-    img, contours, hierarchy = cv2.findContours(closedopentextimg, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+    # closedopentextimg = cv2.morphologyEx(textimg,cv2.MORPH_DILATE,kernel, iterations = 1)
+    img, contours, hierarchy = cv2.findContours(closedopentextimg, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+    contourscopy = contours.copy()
     contours.sort(key=lambda x: cv2.contourArea(x), reverse=True)
     for i in range(0, len(contours)):
         if cv2.contourArea(contours[i]) <= 1:
@@ -322,18 +363,23 @@ def extract_rois(image_path):
             exrects = exrects[:i]
             break
     rois = []
-    #baseimg = np.zeros(textimg.shape)
+    # baseimg = np.zeros(textimg.shape)
     for rect in exrects:
-        char = cropMultipleContoursBindingRect(closedopentextimg, rect[1])
-        #char = [rect[0], closedopentextimg[rect[0][1]:rect[0][1]+rect[0][3]+1, rect[0][0]:rect[0][0]+rect[0][2]+1]]
+        char = cropMultipleContoursBoundingRect(closedopentextimg, rect[1], contourscopy)
+        # char = [rect[0], closedopentextimg[rect[0][1]:rect[0][1]+rect[0][3]+1, rect[0][0]:rect[0][0]+rect[0][2]+1]]
+        if char[1].shape[0] == 0 or char[1].shape[1] == 0:
+            continue
         rois.append(char)
     rois.sort(key=lambda x: x[0][0])
     vectorimgrois = []
     distancerois = []
     print(len(exrects))
-    for i in range(0, len(rois)):
-        if rois[i][1].shape[0]==0 or rois[i][1].shape[1]==0: continue
-        vectorimgrois.append(cv2.resize(rois[i][1]/255, (32, 32), interpolation=cv2.INTER_NEAREST))
+    i = 0
+    while i < len(rois):
+        vectorimgrois.append(cv2.resize(rois[i][1] / 255, (28, 28), interpolation=cv2.INTER_NEAREST))
+        #plt.imshow(vectorimgrois[-1])
+        #plt.show()
         if i + 1 < len(rois):
             distancerois.append(rectDistance(rois[i][0], rois[i + 1][0]))
+        i += 1
     return vectorimgrois, distancerois

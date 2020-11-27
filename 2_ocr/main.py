@@ -38,6 +38,7 @@ extracted_text = []
 for image_path in glob.glob(VALIDATION_DATASET_PATH + "*.png"):
     image_directory, image_name = os.path.split(image_path)
     processed_image_names.append(image_name)
+    print(image_path)
     extracted_text.append(extract_text_from_image(model, image_path, vocabulary))
 
 
