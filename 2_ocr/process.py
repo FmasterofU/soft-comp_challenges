@@ -75,18 +75,25 @@ def train_ocr(train_image_paths):
     nn.add(Dense(len(alphabet), activation='softmax'))
     y = np.array(np.eye(len(alphabet)), np.float32)
     x = []
+    #b = False
     for path in train_image_paths:
         vectorimagerois, _ = extract_rois(path)
         for im in vectorimagerois:
+            #if b:
+            #    plt.imshow(im)
+            #    plt.show()
             #x.append(im.flatten())
-            x.append(im.tolist())
+            x.append(resize_and_flatten(im, (28, 28), flatten=False).tolist())
+        #b = True
     x = np.array(x)
+    #print(len(x))
+    #exit(0)
     print(x.shape, y.shape)
     sgd = SGD(lr=0.4, momentum=0.9)
     nn.compile(loss='mean_squared_error', optimizer=sgd)
     #nn.fit(x, y, epochs=700, batch_size=1, verbose=2, shuffle=False)
     #return nn
-    # print(x.shape)
+    #print(x.shape)
     x = np.expand_dims(x, axis=3)
     print(x.shape)
     round = 0
@@ -96,7 +103,7 @@ def train_ocr(train_image_paths):
         for a in x_batch:
             #plt.imshow(a)
             #plt.show()
-            x.append(a.flatten())
+            x.append(a.flatten())#resize_and_flatten(a, (28, 28)))
         x = np.array(x)
         print(round)
         nn.fit(x, y_batch, epochs=1, steps_per_epoch=x.shape[0], verbose=2, shuffle=False)
@@ -109,7 +116,7 @@ def train_ocr(train_image_paths):
 def nn_predict_text(trained_model, vectorcharimgrois):
     extracted_text = ''
     for i in range(len(vectorcharimgrois)):
-        vectorcharimgrois[i] = vectorcharimgrois[i].flatten()
+        vectorcharimgrois[i] = resize_and_flatten(vectorcharimgrois[i], (28, 28))
         if vectorcharimgrois[i].ndim == 1:
             vectorcharimgrois[i] = np.array([vectorcharimgrois[i]])
         index = np.argmax(trained_model.predict(vectorcharimgrois[i]))
@@ -237,7 +244,7 @@ def expandRect(rectangle):
     recth = int(hyupshift + hydownshift + rectangle[3])
     rectx = rectangle[0] - wxsideshift
     recty = rectangle[1] - hyupshift
-    return (rectx, recty, rectw, recth)
+    return rectx, recty, rectw, recth
 
 
 def cropMultipleContoursBoundingRect(baseimg, cnts, allcontours):
@@ -258,14 +265,14 @@ def cropMultipleContoursBoundingRect(baseimg, cnts, allcontours):
     w = x2 - x1
     h = y2 - y1
     rect = (x1, y1, w, h)
-    # for c in allcontours:
-    #    exists = False
-    #    for cnt in cnts:
-    #        if np.array_equal(c, cnt):
-    #            exists = True
-    #            break
-    #    if not exists:
-    #        cv2.drawContours(img, [c], -1, 0)
+    for c in allcontours:
+        exists = False
+        for cnt in cnts:
+            if np.array_equal(c, cnt):
+                exists = True
+                break
+        if not exists:
+            cv2.drawContours(img, [c], -1, 0)
     return [rect, img[int(y1):int(y1 + h + 1), int(x1):int(x1 + w + 1)]]
 
 
@@ -274,6 +281,11 @@ def rectDistance(r1, r2):
     ylowerdist = r2[1] + r2[3] - (r1[1] + r1[3])
     dist = math.sqrt(math.pow(xdist, 2) + math.pow(ylowerdist, 2)) * (1 if xdist == 0 else xdist / abs(xdist))
     return xdist
+
+
+def resize_and_flatten(img, shape, flatten = True):
+    resized = cv2.resize(img, shape, interpolation=cv2.INTER_NEAREST)
+    return resized.flatten() if flatten else resized
 
 
 counter = 0
@@ -320,8 +332,7 @@ def extract_rois(image_path):
             for i in range(1, 3):
                 xtemp, ytemp = distinctHist(hsvImage[:, :, i], 255, hsvImage[:, :, 0] == peak)
                 hsvpeak.append(np.argmax(ytemp))
-                if (i == 1 and np.amax(ytemp) < 0.3 * y[
-                    peak]):  # or (i==2 and np.amax(ytemp)<0.4*y[peak]):#if (i == 1 and np.amax(ytemp) < 0.6 * y[peak]) or (i == 2 and np.amax(ytemp) < 0.4 * y[peak]):
+                if i == 1 and np.amax(ytemp) < 0.3 * y[peak]:  # or (i==2 and np.amax(ytemp)<0.4*y[peak]):#if (i == 1 and np.amax(ytemp) < 0.6 * y[peak]) or (i == 2 and np.amax(ytemp) < 0.4 * y[peak]):
                     valid = False
                     break
             if valid:
@@ -337,7 +348,7 @@ def extract_rois(image_path):
     closedopentextimg = textimg
     # opentextimg = cv2.morphologyEx(textimg,cv2.MORPH_OPEN,kernel, iterations = 1)
     # closedopentextimg = cv2.morphologyEx(textimg,cv2.MORPH_DILATE,kernel, iterations = 1)
-    img, contours, hierarchy = cv2.findContours(closedopentextimg, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+    img, contours, hierarchy = cv2.findContours(closedopentextimg, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
     contourscopy = contours.copy()
     contours.sort(key=lambda x: cv2.contourArea(x), reverse=True)
     for i in range(0, len(contours)):
@@ -348,7 +359,7 @@ def extract_rois(image_path):
     i = 0
     while i < len(contours):
         j = i + 1
-        exrect = [expandRect(cv2.boundingRect(contours[i])), []]
+        exrect = [expandRect(cv2.boundingRect(contours[i])), [contours[i]]]
         while j < len(contours):
             if isInside(exrect[0], contours[j]):
                 exrect[1].append(contours[j])
@@ -365,7 +376,7 @@ def extract_rois(image_path):
     rois = []
     # baseimg = np.zeros(textimg.shape)
     for rect in exrects:
-        char = cropMultipleContoursBoundingRect(closedopentextimg, rect[1], contourscopy)
+        char = cropMultipleContoursBoundingRect(img, rect[1], contourscopy)
         # char = [rect[0], closedopentextimg[rect[0][1]:rect[0][1]+rect[0][3]+1, rect[0][0]:rect[0][0]+rect[0][2]+1]]
         if char[1].shape[0] == 0 or char[1].shape[1] == 0:
             continue
@@ -373,10 +384,9 @@ def extract_rois(image_path):
     rois.sort(key=lambda x: x[0][0])
     vectorimgrois = []
     distancerois = []
-    print(len(exrects))
     i = 0
     while i < len(rois):
-        vectorimgrois.append(cv2.resize(rois[i][1] / 255, (28, 28), interpolation=cv2.INTER_NEAREST))
+        vectorimgrois.append(rois[i][1] / 255)
         #plt.imshow(vectorimgrois[-1])
         #plt.show()
         if i + 1 < len(rois):
