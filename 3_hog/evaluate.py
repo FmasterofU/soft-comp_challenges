@@ -80,4 +80,7 @@ percentage_age = age_cumsum/len(predicted_age)
 percentage_gender = accuracy_score(truth_gender, predicted_gender)*100
 percentage_race = accuracy_score(truth_race, predicted_race)*100
 
-print(sum([percentage_age, percentage_gender, percentage_race])/3)
+print("Godine: ", percentage_age)
+print("Pol: ", percentage_gender)
+print("Rasa: ", percentage_race)
+print("Ukupno: ", sum([percentage_age, percentage_gender, percentage_race])/3)
