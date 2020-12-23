@@ -1,0 +1,48 @@
+
+Pozdrav,<br/><br/>
+
+Source kod nije u zadovoljavajućem formatu da bi bio automatski pokrenut i ocenjen.<br/><br/>
+
+Česti razlozi iz kojih se ovo dešava:<br/>
+1. main.py ne postoji, drugačije je nazvan, ili su unutar njega menjani delovi koje nije dozvoljeno menjati,<br/>
+2. Korišćene su nedozvoljene biblioteke<br/>
+3. Kod sadrži greške<br/><br/>
+
+Opis problema (automatski generisan):<br/>
+<i style="color:red;">Using Theano backend.
+Traceback (most recent call last):
+  File &quot;main.py&quot;, line 44, in &lt;module&gt;
+    model_age = train_or_load_age_model(train_image_paths, train_age_labels)
+  File &quot;/home/softcomputing/Documents/soft_computing_grading_repository/data/grading_folder/3/2020-12-10 03:30:00+00:00/ra-117-2017/process.py&quot;, line 144, in train_or_load_age_model
+    model[0] = load(&#39;knn_age.joblib&#39;)
+  File &quot;/home/softcomputing/anaconda3/envs/soft-env/lib/python3.6/site-packages/joblib/numpy_pickle.py&quot;, line 605, in load
+    obj = _unpickle(fobj, filename, mmap_mode)
+  File &quot;/home/softcomputing/anaconda3/envs/soft-env/lib/python3.6/site-packages/joblib/numpy_pickle.py&quot;, line 529, in _unpickle
+    obj = unpickler.load()
+  File &quot;/home/softcomputing/anaconda3/envs/soft-env/lib/python3.6/pickle.py&quot;, line 1050, in load
+    dispatch[key[0]](self)
+  File &quot;/home/softcomputing/anaconda3/envs/soft-env/lib/python3.6/pickle.py&quot;, line 1338, in load_global
+    klass = self.find_class(module, name)
+  File &quot;/home/softcomputing/anaconda3/envs/soft-env/lib/python3.6/pickle.py&quot;, line 1388, in find_class
+    __import__(module, level=0)
+ModuleNotFoundError: No module named &#39;sklearn.svm._classes&#39;
+</i><br/><br/>
+
+
+Vaš dosadašnji najbolji rezultat u ovom izazovu je: <b> 50.08 % </b><br/><br/>
+
+
+
+Trenutno se na osnovu Vašeg najboljeg rezultata nalazite u <b>TOP 25</b> najuspešnijih studenata u rešavanju ovog izazova.<br/><br/>
+
+
+Globalno najbolji rezultat u ovom izazovu se u ovom trenutku nalazi u opsegu od 70.0% do 79.99%. <br/><br/>
+
+Tačna rang lista će biti objavljena nakon završetka krajnjeg roka za predaju rešenja.
+
+
+
+
+
+
+

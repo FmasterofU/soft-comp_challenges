@@ -1,7 +1,6 @@
 import os
 import numpy as np
 import cv2  # OpenCV
-from imblearn.under_sampling import ClusterCentroids
 from keras.layers import Dense, Dropout
 from keras.models import model_from_json, Sequential
 from keras.optimizers import SGD
@@ -23,15 +22,18 @@ import cv2
 import math
 from sklearn.neural_network import MLPClassifier
 from imblearn.over_sampling import RandomOverSampler
-
+from imblearn.under_sampling import ClusterCentroids
+from imblearn.over_sampling import SMOTE, ADASYN
+from sklearn.gaussian_process import GaussianProcessClassifier
+from sklearn.gaussian_process.kernels import RBF
 # import libraries here
 
 
 face_detector = dlib.get_frontal_face_detector()
 face_shape_predictor = dlib.shape_predictor('shape_predictor_68_face_landmarks.dat')
 nbins = 9
-cell_size = (32, 32)
-block_size = (4, 4)
+cell_size = (16, 16)
+block_size = (3, 3)
 face_image_width = 200
 face_image_height = 200
 hog = cv2.HOGDescriptor(_winSize=(face_image_width // cell_size[1] * cell_size[1],
@@ -171,28 +173,38 @@ def train_or_load_age_model(train_image_paths, train_image_labels):
     # TODO - Istrenirati model ako vec nije istreniran, ili ga samo ucitati iz foldera za serijalizaciju
 
     model = [None, None]
-    return model
+    #return model
     try:
         model[0] = load('svm_age.joblib')
     except FileNotFoundError as e:
-        knn = SVR(kernel='linear')#, probability=True)#, class_weight='balanced')#KNeighborsClassifier(n_neighbors=len(train_image_labels))
+        knn = SVC(kernel='linear', probability=True)#, class_weight='balanced')#KNeighborsClassifier(n_neighbors=len(train_image_labels))
         x_train = []
+        y_train = (np.array(train_image_labels) // 5).tolist()
+        #j=0
         for i in range(len(train_image_paths)):
             image = load_rgb_image(train_image_paths[i])
             face_image, face_landmarks, face_hog, hue_histogram, saturation_histogram, value_histogram = \
                 face_descriptor(image, train_image_paths[i])
             x_train.append(face_hog.flatten())
+            #if face_landmarks is None:
+            #    print("Ignore data for age bc of face landmarks")
+            #    y_train.pop(j)
+            #    continue
+            #else:
+            #    j+=1
+            #x_train.append(quadratic_relative_landmark_distances(face_landmarks).flatten())
         x_train = np.array(x_train)
-        y_train = np.array(train_image_labels) // 5
+        #y_train = np.array(train_image_labels) // 5
+        y_train = np.array(y_train)
         print(y_train.shape, x_train.shape)
-        #x_train, y_train = ros.fit_resample(x_train, y_train)
+        x_train, y_train = ros.fit_resample(x_train, y_train)
         print(y_train.shape, x_train.shape)
         print(y_train)
         knn = knn.fit(x_train, y_train)
         model[0] = knn
         dump(knn, 'svm_age.joblib')
         print("Train accuracy: ", accuracy_score(y_train, knn.predict(x_train)))
-
+    return model
     nnmodel = None
     try:
         with open(os.path.join(os.getcwd(), 'AgeNeuralNetParams.json'), 'r') as nnp_file:
@@ -200,7 +212,7 @@ def train_or_load_age_model(train_image_paths, train_image_labels):
         nnmodel.load_weights(os.path.join(os.getcwd(), 'AgeNeuralNetWeights.h5'))
     except Exception as e:
         nn = Sequential()
-        nn.add(Dense(512, input_dim=1296, activation='sigmoid'))
+        nn.add(Dense(512, input_dim=2346, activation='sigmoid'))
         nn.add(Dropout(0.15))
         # nn.add(Dense(256, activation='sigmoid'))
         # nn.add(Dropout(0.3))
@@ -275,7 +287,7 @@ def train_or_load_gender_model(train_image_paths, train_image_labels):
         svm.fit(x_train, y_train)
         model[0] = svm
         dump(svm, 'svm_gender.joblib')
-        #print("Train accuracy: ", accuracy_score(y_train, svm.predict(x_train)))
+        print("Train accuracy: ", accuracy_score(y_train, svm.predict(x_train)))
     return model
     nnmodel = None
     try:
@@ -331,40 +343,65 @@ def train_or_load_race_model(train_image_paths, train_image_labels):
     # TODO - Istrenirati model ako vec nije istreniran, ili ga samo ucitati iz foldera za serijalizaciju
 
     model = [None, None]
-    return model
-    x_train = []
-    y_train = []
+#    return model
+    x_train_known_races = []
+    y_train_known_races = []
     try:
-        model[0] = load('svm_race.joblib')
+        model[0] = load('svm_known_races.joblib')
+        #model[1] = load('svm_other_races.joblib')
     except FileNotFoundError as e:
-        knn = SVC(kernel='linear', probability=True)#KNeighborsClassifier(n_neighbors=len(train_image_labels))
-        x_train = []
-        y_train = []
+        svm_known_races = SVC(kernel='linear', probability=True)
+        #svm_other_races = GaussianProcessClassifier(kernel=RBF(length_scale=1.1))#SVC(kernel='linear', probability=True)
+        #KNeighborsClassifier(n_neighbors=len(train_image_labels))
+        x_train_known_races = []
+        y_train_known_races = []
+        x_train_other_races = []
+        y_train_other_races = []
         for i in range(len(train_image_paths)):
-            if train_image_labels[i] == '4':
-                print("Nearijevska rasa lol")
-                continue
-            y_train.append(train_image_labels[i])
             image = load_rgb_image(train_image_paths[i])
             face_image, face_landmarks, face_hog, hue_histogram, saturation_histogram, value_histogram = \
                 face_descriptor(image, train_image_paths[i])
             x = []
             x.extend(hue_histogram.flatten().tolist())
-            #x.extend(saturation_histogram.flatten().tolist())
+            x.extend(saturation_histogram.flatten().tolist())
             x.extend(value_histogram.flatten().tolist())
             x = np.array(x)
-            x_train.append(x.flatten())
-        x_train = np.array(x_train)
-        y_train = np.array(y_train)
-        print(y_train.shape, x_train.shape)
-        x_train, y_train = cc.fit_resample(x_train, y_train)
-        print(y_train.shape, x_train.shape)
-        print(y_train)
-        knn = knn.fit(x_train, y_train)
-        model[0] = knn
-        dump(knn, 'svm_race.joblib')
-        print("Train accuracy: ", accuracy_score(y_train, knn.predict(x_train)))
-
+            x_train_other_races.append(x.flatten())
+            if train_image_labels[i] == '4':
+                print("Nearijevska rasa lol")
+                y_train_other_races.append([1])
+            else:
+                y_train_other_races.append([0])
+                y_train_known_races.append(train_image_labels[i])
+                x_train_known_races.append(x.flatten())
+            #if face_landmarks is None:
+            #    print("face landmark not calculated")
+            #    continue
+            #x.append(quadratic_relative_landmark_distances(face_landmarks).flatten())
+        print("KNOWN races")
+        x_train_known_races = np.array(x_train_known_races)
+        y_train_known_races = np.array(y_train_known_races)
+        print(y_train_known_races.shape, x_train_known_races.shape)
+        x_train_resampled_known_races, y_train_resampled_known_races = ros.fit_resample(x_train_known_races, y_train_known_races)
+        print(y_train_resampled_known_races.shape, x_train_resampled_known_races.shape)
+        print(y_train_resampled_known_races)
+        #print("OTHER races")
+        #x_train_other_races = np.array(x_train_other_races)
+        #y_train_other_races = np.array(y_train_other_races)
+        #print(y_train_other_races.shape, x_train_other_races.shape)
+        #x_train_resampled_other_races, y_train_resampled_other_races = SMOTE().fit_resample(x_train_other_races, y_train_other_races)
+        #print(y_train_resampled_other_races.shape, x_train_resampled_other_races.shape)
+        #print(y_train_resampled_other_races)
+        svm_known_races = svm_known_races.fit(x_train_resampled_known_races, y_train_resampled_known_races)
+        #svm_other_races = svm_other_races.fit(x_train_resampled_other_races, y_train_resampled_other_races)
+        model[0] = svm_known_races
+        #model[1] = svm_other_races
+        dump(svm_known_races, 'svm_known_races.joblib')
+        #dump(svm_known_races, 'svm_other_races.joblib')
+        print("Train accuracy for known races svm: ",
+              accuracy_score(y_train_known_races, svm_known_races.predict(x_train_known_races)))
+        #print("Train accuracy for other races svm: ", accuracy_score(y_train_other_races, svm_other_races.predict(x_train_other_races)))
+    return model
     nnmodel = None
     try:
         with open(os.path.join(os.getcwd(), 'RaceNeuralNetParams.json'), 'r') as nnp_file:
@@ -379,16 +416,16 @@ def train_or_load_race_model(train_image_paths, train_image_labels):
         nn.add(Dense(64, activation='sigmoid'))
         #nn.add(Dropout(0.3))
         nn.add(Dense(5, activation='softmax'))
-        y_list = y_train.tolist()
+        y_list = y_train_known_races.tolist()
         y = np.array(np.zeros((len(y_list), 5)), np.float32)
         print(y.shape)
         for i in range(len(y_list)):
             y[i, int(y_list[i])] = 1
-        print(x_train.shape, y.shape)
-        print(x_train[0], y[0])
+        print(x_train_known_races.shape, y.shape)
+        print(x_train_known_races[0], y[0])
         sgd = SGD(lr=0.05, momentum=0.8)
         nn.compile(loss='mean_squared_error', optimizer=sgd)
-        nn.fit(x_train, y, epochs=1500, batch_size=1, verbose=2, shuffle=False)
+        nn.fit(x_train_known_races, y, epochs=1500, batch_size=1, verbose=2, shuffle=False)
         nnmodel = nn
         params = nnmodel.to_json()
         try:
@@ -415,16 +452,28 @@ def predict_age(trained_model, image_path):
     """
     age = 150000000  # 0
     # TODO - Prepoznati ekspresiju lica i vratiti njen naziv (kao string, iz skupa mogucih vrednosti)
-    return age
+    #return age
     image = load_rgb_image(image_path)
     face_image, face_landmarks, face_hog, hue_histogram, saturation_histogram, value_histogram = \
         face_descriptor(image, image_path)
     temp = trained_model[0].predict(np.array([face_hog.flatten()]))[0]
+    #if face_landmarks is None:
+    #    print("Ignore data for age bc of face landmarks")
+    #    return age
+    #temp = trained_model[0].predict(np.array([quadratic_relative_landmark_distances(face_landmarks).flatten()]))[0]
     print(temp)
     age = temp * 5
     print(age)
-    return int(age // 1)
-    index = np.argmax(trained_model[1].predict(np.array([face_hog.flatten()])))
+    age = int(age // 1)
+    if age<0:
+        print("underage")
+        age = 0
+    elif age>116:
+        print("overage")
+        age = 116
+    return age
+    #index = np.argmax(trained_model[1].predict(np.array([face_hog.flatten()])))
+    index = np.argmax(trained_model[1].predict(np.array([quadratic_relative_landmark_distances(face_landmarks).flatten()])))
     print(index, index*5)
     age = index*5
     return age
@@ -448,7 +497,7 @@ def predict_gender(trained_model, image_path):
     face_image, face_landmarks, face_hog, hue_histogram, saturation_histogram, value_histogram = \
         face_descriptor(image, image_path)
     if face_landmarks is None:
-        return 2
+        return 0
     #face_landmarks = minimize_landmark_coordinates(face_landmarks)
     face_landmarks = quadratic_relative_landmark_distances(face_landmarks)
     temp = trained_model[0].predict(np.array([face_landmarks.flatten()]))
@@ -473,16 +522,21 @@ def predict_race(trained_model, image_path):
     """
     race = 5  # 4
     # TODO - Prepoznati ekspresiju lica i vratiti njen naziv (kao string, iz skupa mogucih vrednosti)
-    return race
+    #return race
     image = load_rgb_image(image_path)
     face_image, face_landmarks, face_hog, hue_histogram, saturation_histogram, value_histogram = \
         face_descriptor(image, image_path)
     print(len(hue_histogram)+len(saturation_histogram)+len(value_histogram))
     x = []
     x.extend(hue_histogram.flatten().tolist())
-    #x.extend(saturation_histogram.flatten().tolist())
+    x.extend(saturation_histogram.flatten().tolist())
     x.extend(value_histogram.flatten().tolist())
+    #if face_landmarks is None:
+    #    return race
+    #x.extend(quadratic_relative_landmark_distances(face_landmarks).flatten())
     x = np.array(x)
+    #if int(trained_model[1].predict(np.array([x.flatten()]))[0]) == 1:
+    #    return 4
     temp = trained_model[0].predict(np.array([x.flatten()]))
     print(temp)
     race = int(temp[0])

@@ -9,12 +9,12 @@ import os
 if len(sys.argv) > 1:
     TRAIN_DATASET_PATH = sys.argv[1]
 else:
-    TRAIN_DATASET_PATH = '.' + os.path.sep + 'dataset' + os.path.sep + 'train' + os.path.sep
+    TRAIN_DATASET_PATH = '.' + os.path.sep + 'dataset' + os.path.sep + 'validation' + os.path.sep
 
 if len(sys.argv) > 1:
     VALIDATION_DATASET_PATH = sys.argv[2]
 else:
-    VALIDATION_DATASET_PATH = '.'+os.path.sep+'dataset'+os.path.sep+'validation'+os.path.sep
+    VALIDATION_DATASET_PATH = '.'+os.path.sep+'dataset'+os.path.sep+'train'+os.path.sep
 # -------------------------------------------------------------------
 
 # indeksiranje labela za brzu pretragu
