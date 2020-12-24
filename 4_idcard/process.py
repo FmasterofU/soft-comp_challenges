@@ -6,7 +6,7 @@ class Person:
     """
     Klasa koja opisuje prepoznatu osobu sa slike. Neophodno je prepoznati samo vrednosti koje su opisane u ovoj klasi
     """
-    def __init__(self, name: str = None, date_of_birth: datetime.date = None, job: str = None, ssn: str = None,
+    def __init__(self, name: str = None, date_of_birth: datetime.date = datetime.date.today(), job: str = None, ssn: str = None,
                  company: str = None):
         self.name = name
         self.date_of_birth = date_of_birth
@@ -26,7 +26,9 @@ def extract_info(models_folder: str, image_path: str) -> Person:
     :param image_path: <str> Putanja do slike za obradu
     :return:
     """
-    person = Person('test', datetime.date.today(), 'test', 'test', 'test')
+    person = Person()
+    # Person(date_of_birth=datetime.datetime.strptime(row['date_of_birth'], '%Y-%m-%d').date())
+    # Person('test', datetime.date.today(), 'test', 'test', 'test')
 
     # TODO - Prepoznati sve neophodne vrednosti o osobi sa slike. Vrednosti su: Name, Date of Birth, Job,
     #       Social Security Number, Company Name
