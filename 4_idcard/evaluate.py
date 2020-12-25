@@ -79,10 +79,10 @@ for file_name in extracted_data.keys():
     ssn_hits += fuzz.ratio(truth_person.ssn, extracted_person.ssn) / 100
 
 total = sum([name_hits, company_hits, dob_hits, job_hits, ssn_hits]) / (total_samples * 5)
-print("Name accuracy: ", name_hits / (total_samples * 5))
-print("Company accuracy: ", company_hits / (total_samples * 5))
-print("Birth date accuracy: ", dob_hits / (total_samples * 5))
-print("Job accuracy: ", job_hits / (total_samples * 5))
-print("SSN accuracy: ", ssn_hits / (total_samples * 5))
+print("Name accuracy: ", name_hits / total_samples)
+print("Company accuracy: ", company_hits / total_samples)
+print("Birth date accuracy: ", dob_hits / total_samples)
+print("Job accuracy: ", job_hits / total_samples)
+print("SSN accuracy: ", ssn_hits / total_samples)
 print()
 print("Total accuracy: ", total * 100)
