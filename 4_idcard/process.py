@@ -1,12 +1,13 @@
-import dlib
+# import dlib
 import cv2
 import numpy as np
 from PIL import Image
 import sys
-import os
+# import os
 import pyocr
 import pyocr.builders
 import re
+from fuzzywuzzy import fuzz, process
 # import libraries here
 import datetime
 
@@ -24,9 +25,8 @@ class Person:
     Klasa koja opisuje prepoznatu osobu sa slike. Neophodno je prepoznati samo vrednosti koje su opisane u ovoj klasi
     """
 
-    def __init__(self, name: str = None, date_of_birth: datetime.date = None, job: str = None,
-                 ssn: str = None,
-                 company: str = None):
+    def __init__(self, name: str = None, date_of_birth: datetime.date = None,
+                 job: str = None, ssn: str = None, company: str = None):
         self.name = name
         self.date_of_birth = date_of_birth if date_of_birth is not None else datetime.date.today()
         self.job = job
@@ -46,11 +46,6 @@ def extract_info(models_folder: str, image_path: str) -> Person:
     :return:
     """
     person = Person()
-    # Person(date_of_birth=datetime.datetime.strptime(row['date_of_birth'], '%Y-%m-%d').date())
-    # Person('test', datetime.date.today(), 'test', 'test', 'test')
-
-    # TODO - Prepoznati sve neophodne vrednosti o osobi sa slike. Vrednosti su: Name, Date of Birth, Job,
-    #       Social Security Number, Company Name
 
     lang = 'eng'
     id_card = extract_id_card(image_path)
@@ -102,29 +97,46 @@ def parse_dob(text):
 
 
 def parse_ssn(text):
+    def default_ssn():
+        return '888-88-8888'
     ssn_re_loose = re.compile(r'.{3}[-].{2}[-].{4}')
     found = ssn_re_loose.findall(text)
-    print(found)
     ssn_re_tight = re.compile(r'[\d]{3}[-][\d]{2}[-][\d]{4}')
     for ssn_str in found:
         if ssn_re_tight.match(ssn_str) is not None:
             return ssn_str
     if len(found) == 0:
-        return None  # '888-88-8888'
+        ssn_re_desperate = re.compile('.{9}')
+        found = ssn_re_desperate.findall(text)
+        if len(found) == 0:
+            return default_ssn()
+        grading = dict()
+        number_re = re.compile(r'[\d]')
+        dash_re = re.compile('[-]')
+        for ssn_str in found:
+            grading[ssn_str] = len(number_re.findall(ssn_str)) + len(dash_re.findall(ssn_str)) * 1.1
+        if len(grading.keys()) == 0:
+            return default_ssn()
+        ssn = max(list(grading.keys()), key=lambda x: grading[x])
+        if grading[ssn] > 4.1:
+            return ssn
+        else:
+            return default_ssn()
     number_re = re.compile(r'[\d]')
     found.sort(key=lambda x: len(number_re.findall(x)), reverse=True)
     return found[0]
 
 
 def get_company(text):
-    if 'IBM' in text:
-        return 'IBM'
-    elif 'Google' in text:
-        return 'Google'
-    elif 'Apple' in text:
-        return 'Apple'
-    else:
-        return None  # 'Google'
+    companies = {'IBM': 0, 'Google': 0, 'Apple': 0}
+    text_no_spaces = text.replace(' ', '')
+    for company_name in companies.keys():
+        if len(company_name) < len(text_no_spaces):
+            for i in range(len(text_no_spaces) - len(company_name) + 1):
+                ld = fuzz.ratio(text_no_spaces[i:i + len(company_name)], company_name)
+                companies[company_name] = ld if ld > companies[company_name] else companies[company_name]
+    company = max(companies.keys(), key=lambda x: companies[x])
+    return company if companies[company] > 55 else 'Google'
 
 
 def extract_id_card(image_path: str):
