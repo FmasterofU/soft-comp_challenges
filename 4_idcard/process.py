@@ -45,7 +45,6 @@ def extract_info(models_folder: str, image_path: str) -> Person:
     :param image_path: <str> Putanja do slike za obradu
     :return:
     """
-    person = Person()
 
     lang = 'eng'
     id_card = extract_id_card(image_path)
@@ -55,7 +54,6 @@ def extract_info(models_folder: str, image_path: str) -> Person:
         builder=pyocr.builders.LineBoxBuilder(tesseract_layout=12)
     )
     text = ''
-    # print('-------------------------------------------------------')
     for i, line in enumerate(line_and_word_boxes):
         # print('line %d' % i)
         # print(line.content, line.position)
@@ -71,19 +69,34 @@ def extract_info(models_folder: str, image_path: str) -> Person:
     )
     for i, line in enumerate(line_and_word_boxes):
         text += line.content + ' '
-    dob = parse_dob(text)
-    print(dob)
-    ssn = parse_ssn(text)
-    print(ssn)
-    company = get_company(text)
+
+    ssn, text = parse_ssn(text)
+    dob, text = parse_dob(text)
+    job, text = get_job(text)
+    company, text = get_company(text)
+    #text = filter_for_name(text)
+    name = extract_name(text)
+    print(name)
     # print('-------------------------------------------------------')
-    return Person(date_of_birth=dob, ssn=ssn, company=company)  # person
+    return Person(name=name, date_of_birth=dob, job=job, ssn=ssn, company=company)
+
+
+def filter_for_name(text):
+    pass#text = text.replace()
+
+
+def extract_name(text):
+    name_re = re.compile(r"[A-Z][a-z]{3,7} [A-Z][a-z]{3,10}")
+    found = name_re.findall(text)
+    if len(found) == 0:
+        return ''
+    else:
+        return found[0]
 
 
 def parse_dob(text):
     date_re = re.compile('[0-9]{2}[,] [A-Z][a-z]{2} [0-9]{4}')
     found = date_re.findall(text)
-    print(found)
     date = None
     dates = []
     for date_str in found:
@@ -93,50 +106,82 @@ def parse_dob(text):
             print(e)
     if len(dates) != 0:
         date = min(dates)
-    return date
+    text = drop_matches(text, found)
+    return date, text
 
 
 def parse_ssn(text):
     def default_ssn():
-        return '888-88-8888'
+        return '888-88-8888', text
     ssn_re_loose = re.compile(r'.{3}[-].{2}[-].{4}')
     found = ssn_re_loose.findall(text)
     ssn_re_tight = re.compile(r'[\d]{3}[-][\d]{2}[-][\d]{4}')
     for ssn_str in found:
         if ssn_re_tight.match(ssn_str) is not None:
-            return ssn_str
+            text = drop_matches(text, found)
+            return ssn_str, text
     if len(found) == 0:
         ssn_re_desperate = re.compile('.{9}')
         found = ssn_re_desperate.findall(text)
         if len(found) == 0:
-            return default_ssn()
+            return default_ssn(), text
         grading = dict()
         number_re = re.compile(r'[\d]')
         dash_re = re.compile('[-]')
         for ssn_str in found:
             grading[ssn_str] = len(number_re.findall(ssn_str)) + len(dash_re.findall(ssn_str)) * 1.1
         if len(grading.keys()) == 0:
-            return default_ssn()
+            return default_ssn(), text
         ssn = max(list(grading.keys()), key=lambda x: grading[x])
         if grading[ssn] > 4.1:
-            return ssn
+            return ssn, text
         else:
-            return default_ssn()
+            return default_ssn(), text
     number_re = re.compile(r'[\d]')
     found.sort(key=lambda x: len(number_re.findall(x)), reverse=True)
-    return found[0]
+    text = drop_matches(text, found)
+    return found[0], text
+
+
+def get_job(text):
+    jobs = {'Human Resources': 0, 'Scrum Master': 0, 'Team Lead': 0, 'Manager': 0, 'Software Engineer': 0}
+    job, jobs, removal_record = match_results(text, jobs)
+    text = drop_matches(text, removal_record)
+    return job if jobs[job] > 55 else 'Human Resources', text
 
 
 def get_company(text):
     companies = {'IBM': 0, 'Google': 0, 'Apple': 0}
     text_no_spaces = text.replace(' ', '')
-    for company_name in companies.keys():
-        if len(company_name) < len(text_no_spaces):
-            for i in range(len(text_no_spaces) - len(company_name) + 1):
-                ld = fuzz.ratio(text_no_spaces[i:i + len(company_name)], company_name)
-                companies[company_name] = ld if ld > companies[company_name] else companies[company_name]
-    company = max(companies.keys(), key=lambda x: companies[x])
-    return company if companies[company] > 55 else 'Google'
+    company, companies, removal_record = match_results(text_no_spaces, companies)
+    text = drop_matches(text, removal_record)
+    return company if companies[company] > 55 else 'Google', text
+
+
+def drop_matches(text: str, drop: list):
+    for this in drop:
+        text = text.replace(this, "")
+    return text
+
+
+def drop_similar(text: str, drop: list):
+    for this in drop:
+        pass
+
+
+def match_results(text: str, candidates: dict):
+    record_dict = dict()
+    for candidate_name in candidates.keys():
+        record_dict[candidate_name] = []
+        if len(candidate_name) < len(text):
+            for i in range(len(text) - len(candidate_name) + 1):
+                ld = fuzz.ratio(text[i:i + len(candidate_name)], candidate_name)
+                candidates[candidate_name] = ld if ld > candidates[candidate_name] else candidates[candidate_name]
+                if ld >= 80:
+                    record_dict[candidate_name].append(text[i:i + len(candidate_name)])
+    best_match = max(candidates.keys(), key=lambda x: candidates[x])
+    record = sorted(record_dict[best_match], key=lambda x: fuzz.ratio(x, best_match), reverse=True)
+    return best_match, candidates, record
 
 
 def extract_id_card(image_path: str):
