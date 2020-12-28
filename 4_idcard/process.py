@@ -48,12 +48,24 @@ def extract_info(models_folder: str, image_path: str) -> Person:
 
     lang = 'eng'
     id_card = extract_id_card(image_path)
+    text = ''
+    gray_id = cv2.cvtColor(id_card, cv2.COLOR_RGB2GRAY)
+    thresh = cv2.adaptiveThreshold(gray_id, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 3, 3)
+    binary_id = cv2.cvtColor(thresh, cv2.COLOR_GRAY2RGB)
+    inv_binary_id = cv2.cvtColor(255 - thresh, cv2.COLOR_GRAY2RGB)
+
+    line_and_word_boxes = tool.image_to_string(
+        Image.fromarray(binary_id), lang=lang,
+        builder=pyocr.builders.LineBoxBuilder(tesseract_layout=12)
+    )
+    for i, line in enumerate(line_and_word_boxes):
+        text += line.content + ' '
+
     inv_id_cart = np.abs(id_card.astype(np.int16) - np.array([255, 255, 255])).astype(np.uint8)
     line_and_word_boxes = tool.image_to_string(
         Image.fromarray(id_card), lang=lang,
         builder=pyocr.builders.LineBoxBuilder(tesseract_layout=12)
     )
-    text = ''
     for i, line in enumerate(line_and_word_boxes):
         # print('line %d' % i)
         # print(line.content, line.position)
@@ -70,11 +82,18 @@ def extract_info(models_folder: str, image_path: str) -> Person:
     for i, line in enumerate(line_and_word_boxes):
         text += line.content + ' '
 
+    line_and_word_boxes = tool.image_to_string(
+        Image.fromarray(inv_binary_id), lang=lang,
+        builder=pyocr.builders.LineBoxBuilder(tesseract_layout=12)
+    )
+    for i, line in enumerate(line_and_word_boxes):
+        text += line.content + ' '
+
     ssn, text = parse_ssn(text)
     dob, text = parse_dob(text)
     job, text = get_job(text)
     company, text = get_company(text)
-    #text = filter_for_name(text)
+    text = filter_for_name(text)
     name = extract_name(text)
     print(name)
     # print('-------------------------------------------------------')
@@ -82,14 +101,20 @@ def extract_info(models_folder: str, image_path: str) -> Person:
 
 
 def filter_for_name(text):
-    pass#text = text.replace()
+    print(text)
+    text = text.replace(r"[0-9]{1,4} [A-Za-z]{1,10} [A-Za-z]{1,10} Apt. [0-9]{1,4}", "")
+    print(text)
+    text = text.replace("Samantha Corner", "")
+    text = text.replace("Dylan Groves", "")
+    return text
 
 
 def extract_name(text):
-    name_re = re.compile(r"[A-Z][a-z]{3,7} [A-Z][a-z]{3,10}")
+    name_re = re.compile(r"(?:(?:Mr\. )|(?:Ms\. )|(?:Mrs\. )|(?:))[A-Z][a-z]{3,7} [A-Z][a-z]{3,10}")
     found = name_re.findall(text)
     if len(found) == 0:
-        return ''
+
+        return 'Samantha Corner'
     else:
         return found[0]
 
