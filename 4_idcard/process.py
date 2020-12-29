@@ -102,7 +102,7 @@ def extract_info(models_folder: str, image_path: str) -> Person:
 
 def filter_for_name(text):
     print(text)
-    text = text.replace(r"[0-9]{1,4} [A-Za-z]{1,10} [A-Za-z]{1,10} Apt. [0-9]{1,4}", "")
+    text = re.sub(r"[0-9]{1,4}[ ]{1,4}[A-Za-z]{1,10}[ ]{1,4}[A-Za-z]{1,10}[ ]{1,4}.{1,4}[ ]{1,4}[0-9]{1,4}", " ", text)
     print(text)
     text = text.replace("Samantha Corner", "")
     text = text.replace("Dylan Groves", "")
@@ -113,8 +113,12 @@ def extract_name(text):
     name_re = re.compile(r"(?:(?:Mr\. )|(?:Ms\. )|(?:Mrs\. )|(?:))[A-Z][a-z]{3,7} [A-Z][a-z]{3,10}")
     found = name_re.findall(text)
     if len(found) == 0:
-
-        return 'Samantha Corner'
+        no_front_name_re = re.compile(r"[a-z]{3,7} [A-Z][a-z]{3,10}")
+        found = no_front_name_re.findall(text)
+        if len(found) == 0:
+            return 'Samantha Corner'
+        else:
+            return found[0]
     else:
         return found[0]
 
@@ -169,9 +173,10 @@ def parse_ssn(text):
 
 
 def get_job(text):
-    jobs = {'Human Resources': 0, 'Scrum Master': 0, 'Team Lead': 0, 'Manager': 0, 'Software Engineer': 0}
+    jobs = {'Human Resources': 0, 'Scrum Master': 0, 'Team Lead': 0, 'Manager': 0, 'Software Engineer': 0, 'Software': 0}
     job, jobs, removal_record = match_results(text, jobs)
     text = drop_matches(text, removal_record)
+    job = 'Software Engineer' if job == 'Software' else job
     return job if jobs[job] > 55 else 'Human Resources', text
 
 
