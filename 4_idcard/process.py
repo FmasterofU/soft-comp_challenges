@@ -34,6 +34,9 @@ class Person:
         self.company = company
 
 
+j = 0
+
+
 def extract_info(models_folder: str, image_path: str) -> Person:
     """
     Procedura prima putanju do foldera sa modelima, u slucaju da su oni neophodni, kao i putanju do slike sa koje
@@ -95,17 +98,26 @@ def extract_info(models_folder: str, image_path: str) -> Person:
     company, text = get_company(text)
     text = filter_for_name(text)
     name = extract_name(text)
-    print(name)
+    #print(name)
+    global j
+    for i in range(10):
+        print(j + i, "HAPPY NEW YEAR BOIIIIIIII!")
+    j += i
     # print('-------------------------------------------------------')
     return Person(name=name, date_of_birth=dob, job=job, ssn=ssn, company=company)
 
 
 def filter_for_name(text):
-    print(text)
+    #print(text)
     text = re.sub(r"[0-9]{1,4}[ ]{1,4}[A-Za-z]{1,10}[ ]{1,4}[A-Za-z]{1,10}[ ]{1,4}.{1,4}[ ]{1,4}[0-9]{1,4}", " ", text)
-    print(text)
+    # text = re.sub(r"[ ]{2,}", " ", text)
+    text = re.sub(r"[!--/-@\[-`{-~]", "", text)
+    text = re.sub(r"[A-Z]{2,}", "", text)
+    #text = re.sub(r" [A-Za-z]{1,3} ", " ", text)
+    #print(text)
     text = text.replace("Samantha Corner", "")
     text = text.replace("Dylan Groves", "")
+    #print(text)
     return text
 
 
